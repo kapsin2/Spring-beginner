@@ -1,8 +1,14 @@
 package com.sparta.posting.service;
 
+import com.sparta.posting.dto.DeleteResponseDto;
 import com.sparta.posting.dto.PostingRequestDto;
 import com.sparta.posting.entity.Posting;
+import com.sparta.posting.entity.User;
+import com.sparta.posting.jwt.JwtUtil;
 import com.sparta.posting.repository.PostingRepository;
+import com.sparta.posting.repository.UserRepository;
+import io.jsonwebtoken.Claims;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,10 +19,25 @@ import java.util.List;
 @RequiredArgsConstructor   //초기화 되지않은 final 필드나, @NonNull 이 붙은 필드에 대해 생성자를 생성해 줍니다.
 public class PostingService {
     private final PostingRepository postingRepository;   //@RequiredArgsConstructor 때문에 초기화 하지 않고도 사용가능
+    private final UserRepository userRepository;
+    private final JwtUtil jwtUtil;
 
     @Transactional             //컨트롤러와 결합해주는 역할을 한다.
-    public Posting createPosting(PostingRequestDto postingRequestDto) {
-        Posting posting = new Posting(postingRequestDto);
+    public Posting createPosting(PostingRequestDto postingRequestDto, HttpServletRequest request) {
+        String token = jwtUtil.resolveToken(request);
+        Claims claims = null;
+
+        if (token != null) {
+            if (jwtUtil.validateToken(token)) {
+                claims = jwtUtil.getUserInformToken(token);
+            } else {
+                throw new IllegalArgumentException("Token Error");
+            }
+        }
+        User user = userRepository.findByUsername(claims.getSubject()).orElseThrow(
+                () -> new IllegalArgumentException("사용자가 존재하지 않습니다.")
+        );
+        Posting posting = new Posting(postingRequestDto,user);
         postingRepository.save(posting);
         return posting;
     }
@@ -33,31 +54,55 @@ public class PostingService {
     }
 
     @Transactional
-    public Posting update(Long id,String password, PostingRequestDto postingRequestDto) {
+    public Posting update(Long id, PostingRequestDto postingRequestDto, HttpServletRequest request) {
         Posting posting = postingRepository.findById(id).orElseThrow(
-                () -> new IllegalArgumentException("게시글이 존재하지 않습니다.")
+                () -> new NullPointerException("게시글이 존재하지 않습니다.")
         );
-        if (getPostingById(id).getPassword().equals(password)) {
+        String token = jwtUtil.resolveToken(request);
+        Claims claims = null;
 
-            posting.update(postingRequestDto);
-            return posting;
-        } else {
-            System.out.println("비밀번호가 일치하지 않습니다.");
+        if (token != null) {
+            if (jwtUtil.validateToken(token)) {
+                claims = jwtUtil.getUserInformToken(token);
+            } else {
+                throw new IllegalArgumentException("Token Error");
+            }
         }
+        User user = userRepository.findByUsername(claims.getSubject()).orElseThrow(
+                () -> new IllegalArgumentException("사용자가 존재하지 않습니다.")
+        );
+
+        posting = postingRepository.findByIdAndUserId(id, user.getId()).orElseThrow(
+                () -> new NullPointerException("해당 게시글은 수정할수 없습니다.")
+        );
+        posting.update(postingRequestDto);
         return posting;
     }
 
     @Transactional
-    public String deletePosting(Long id, String password) {
+    public DeleteResponseDto deletePosting(Long id, HttpServletRequest request) {
         Posting posting = postingRepository.findById(id).orElseThrow(
-                () -> new IllegalArgumentException("게시글이 존재하지 않습니다.")
+                () -> new NullPointerException("게시글이 존재하지 않습니다.")
         );
-        if (getPostingById(id).getPassword().equals(password)) {
-            postingRepository.deleteById(id);
-            return "delete ok";
-        } else {
-            System.out.println("비밀번호가 일치하지 않습니다.");
-            return "delete fail";
+
+        String token = jwtUtil.resolveToken(request);
+        Claims claims = null;
+
+        if (token != null) {
+            if (jwtUtil.validateToken(token)) {
+                claims = jwtUtil.getUserInformToken(token);
+            } else {
+                throw new IllegalArgumentException("Token Error");
+            }
         }
+        User user = userRepository.findByUsername(claims.getSubject()).orElseThrow(
+                () -> new IllegalArgumentException("사용자가 존재하지 않습니다.")
+        );
+        posting = postingRepository.findByIdAndUserId(id, user.getId()).orElseThrow(
+                () -> new NullPointerException("해당 게시글은 삭제할수 없습니다.")
+        );
+        postingRepository.deleteById(id);
+        DeleteResponseDto deleteResponseDto = new DeleteResponseDto();
+        return deleteResponseDto;
     }
 }

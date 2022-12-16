@@ -22,22 +22,22 @@ public class Posting extends Datestamped{
     private String postingcontents;
 
     @Column(nullable = false)
+    private String username;
+
     @JsonIgnore
-    private String password;
+    @ManyToOne
+    @JoinColumn(name = "USER_ID", nullable = false)
+    private User user;
 
-    @Column(nullable = false)
-    private String name;
-
-    public Posting(PostingRequestDto postingRequestDto) {               //Posting을 만들떄는 모든 변수에 값을 넣어야 한다.
+    public Posting(PostingRequestDto postingRequestDto, User user) {               //Posting을 만들떄는 모든 변수에 값을 넣어야 한다.
         this.postinghead = postingRequestDto.getPostinghead();
         this.postingcontents = postingRequestDto.getPostingcontents();
-        this.password = postingRequestDto.getPassword();
-        this.name = postingRequestDto.getName();
+        this.username = user.getUsername();
+        this.user = user;
     }
 
-    public void update(PostingRequestDto postingRequestDto) {           //수정할때는 제목,내용,이름만 변경 가능하다.
+    public void update(PostingRequestDto postingRequestDto) {           //수정할때는 제목,내용만 변경가능하다.
         this.postinghead = postingRequestDto.getPostinghead();
         this.postingcontents = postingRequestDto.getPostingcontents();
-        this.name = postingRequestDto.getName();
     }
 }

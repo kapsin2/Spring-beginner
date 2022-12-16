@@ -1,26 +1,32 @@
 package com.sparta.posting.controller;
 
+import com.sparta.posting.dto.DeleteResponseDto;
 import com.sparta.posting.dto.PostingRequestDto;
 import com.sparta.posting.entity.Posting;
 import com.sparta.posting.service.PostingService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.ModelAndView;
 
 import java.util.List;
-                    //view를 반환할때는 @Controller 사용해야함
+
+//view를 반환할때는 @Controller 사용해야함
 @RestController   //@Controller에 @ResponseBody가 추가된것  주용도는 Json형태로(@ResponseBody를 감싼형태로) 객체 데이터를  반환하는것
 @RequiredArgsConstructor
 public class PostingController {
     private final PostingService postingService;
 
-    @GetMapping("/")       //핸들러가 어떤 방식(Get,Post...)으로 컨트롤러에 요청을 하느냐에따라 구분해서 매서드를 실행시키기 위해 Mapping을 사용한다.
+    @GetMapping("/api")
+    //핸들러가 어떤 방식(Get,Post...)으로 컨트롤러에 요청을 하느냐에따라 구분해서 매서드를 실행시키기 위해 Mapping을 사용한다.
     public ModelAndView home() {
         return new ModelAndView();
     }
 
     @PostMapping("/api/postings")
-    public Posting createPosting(@RequestBody PostingRequestDto postingRequestDto) {return postingService.createPosting(postingRequestDto);}
+    public Posting createPosting(@RequestBody PostingRequestDto postingRequestDto, HttpServletRequest request) { //Body 형태로 포스팅 정보를 받아오고 jwt도 같이 받아온다.
+        return postingService.createPosting(postingRequestDto, request);
+    }
 
     @GetMapping("/api/postings")
     public List<Posting> getPostings() {
@@ -32,13 +38,13 @@ public class PostingController {
         return postingService.getPostingById(id);
     }
 
-    @PutMapping("/api/postings/{id},{password}")
-    public Posting updatePosting(@PathVariable Long id,@PathVariable String password, @RequestBody PostingRequestDto postingRequestDto) {
-        return postingService.update(id,password,postingRequestDto);
+    @PutMapping("/api/postings/{id}")
+    public Posting updatePosting(@PathVariable Long id, @RequestBody PostingRequestDto postingRequestDto, HttpServletRequest request) {
+        return postingService.update(id,postingRequestDto,request);         //jwt로 검증해서 수정이 이루어진다.
     }
 
-    @DeleteMapping("/api/postings/{id},{password}")
-    public String deletePosting(@PathVariable Long id,@PathVariable String password) {
-        return postingService.deletePosting(id,password);
+    @DeleteMapping("/api/postings/{id}")
+    public DeleteResponseDto deletePosting(@PathVariable Long id, HttpServletRequest request){
+        return postingService.deletePosting(id,request);
     }
 }
