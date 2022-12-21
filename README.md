@@ -1,3 +1,5 @@
+
+API명세서 : https://documenter.getpostman.com/view/24785759/2s8YzXuzFd
 # Spring-beginner
 1. 회원 가입 API
     - username, password를 Client에서 전달받기
