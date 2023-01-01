@@ -1,6 +1,7 @@
 package com.sparta.posting.jwt;
 
 
+import com.sparta.posting.entity.UserRoleEnum;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
@@ -21,7 +22,7 @@ import java.util.Date;
 public class JwtUtil {
 
     public static final String AUTHORIZATION_HEADER = "Authorization";
-
+    public static final String AUTHORIZATION_KEY = "auth";
     public static final String BEARER_PREFIX = "Bearer ";       //토큰시작부분
     public static final long TOKEN_TIME = 60 * 60 * 1000L;
 
@@ -45,12 +46,13 @@ public class JwtUtil {
         return null;
     }
 
-    public String createToken(String username) {              //토큰을 만드는 매서드
+    public String createToken(String username, UserRoleEnum role) {              //토큰을 만드는 매서드
         Date date = new Date();
 
         return  BEARER_PREFIX +
                 Jwts.builder()
                         .setSubject(username)
+                        .claim(AUTHORIZATION_KEY, role)
                         .setExpiration(new Date(date.getTime()+ TOKEN_TIME))
                         .setIssuedAt(date)
                         .signWith(key,signatureAlgorithm)
@@ -66,6 +68,10 @@ public class JwtUtil {
             log.info("Invalid JWT signature, 유효하지 않는 JWT 서명입니다.");
         } catch (ExpiredJwtException e) {
             log.info("Expired JWT token, 만료된 JWT token 입니다.");
+        }  catch (UnsupportedJwtException e) {
+            log.info("Unsupported JWT token, 지원되지 않는 JWT 토큰 입니다.");
+        } catch (IllegalArgumentException e) {
+            log.info("JWT claims is empty, 잘못된 JWT 토큰 입니다.");
         }
         return false;
     }
@@ -74,4 +80,6 @@ public class JwtUtil {
     public Claims getUserInformToken(String token) {
         return Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token).getBody();
     }
+
+
 }

@@ -1,8 +1,8 @@
 package com.sparta.posting.controller;
 
-import com.sparta.posting.dto.DeleteResponseDto;
 import com.sparta.posting.dto.PostingRequestDto;
-import com.sparta.posting.entity.Posting;
+import com.sparta.posting.dto.ResponseDto;
+import com.sparta.posting.entity.Post;
 import com.sparta.posting.service.PostingService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -24,27 +24,27 @@ public class PostingController {
     }
 
     @PostMapping("/api/postings")
-    public Posting createPosting(@RequestBody PostingRequestDto postingRequestDto, HttpServletRequest request) { //Body 형태로 포스팅 정보를 받아오고 jwt도 같이 받아온다.
+    public Post createPosting(@RequestBody PostingRequestDto postingRequestDto, HttpServletRequest request) throws ResponseDto { //Body 형태로 포스팅 정보를 받아오고 jwt도 같이 받아온다.
         return postingService.createPosting(postingRequestDto, request);
     }
 
     @GetMapping("/api/postings")
-    public List<Posting> getPostings() {
+    public List<Post> getPostings() {
         return postingService.getPostings();
     }
 
     @GetMapping("/api/postings/{id}")
-    public Posting getPostingsById(@PathVariable Long id) {
+    public Post getPostingsById(@PathVariable Long id) throws ResponseDto {
         return postingService.getPostingById(id);
     }
 
     @PutMapping("/api/postings/{id}")
-    public Posting updatePosting(@PathVariable Long id, @RequestBody PostingRequestDto postingRequestDto, HttpServletRequest request) {
+    public Post updatePosting(@PathVariable Long id, @RequestBody PostingRequestDto postingRequestDto, HttpServletRequest request) throws ResponseDto {
         return postingService.update(id,postingRequestDto,request);         //jwt로 검증해서 수정이 이루어진다.
     }
 
     @DeleteMapping("/api/postings/{id}")
-    public DeleteResponseDto deletePosting(@PathVariable Long id, HttpServletRequest request){
+    public ResponseDto deletePosting(@PathVariable Long id, HttpServletRequest request) throws ResponseDto {
         return postingService.deletePosting(id,request);
     }
 }

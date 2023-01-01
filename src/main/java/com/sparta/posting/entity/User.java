@@ -1,9 +1,7 @@
 package com.sparta.posting.entity;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Size;
+
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -14,7 +12,7 @@ import java.util.List;
 @Getter          				//접근가능하게 하기위해
 @Entity(name = "users")
 @NoArgsConstructor             //파라미터가 필요없는 객체의 기본생성자를 만들어준다.
-public class User {
+public class User extends Datestamped{
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)    //ID 값을 자동으로 만들어준다.
     private Long id;				//중복이 안되는 username으로 대신해도 되지 않을까?
@@ -25,11 +23,14 @@ public class User {
     @Column(nullable = false)		//
     private String password;
 
-    @OneToMany
-    private List<Posting> postings = new ArrayList<>();
+    @Column(nullable = false)
+    @Enumerated(value = EnumType.STRING)
+    private UserRoleEnum role;
 
-    public User(String username, String password) {
+
+    public User(String username, String password, UserRoleEnum role) {
         this.username = username;
         this.password = password;
+        this.role = role;
     }
 }

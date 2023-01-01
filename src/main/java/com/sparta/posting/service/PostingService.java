@@ -1,15 +1,16 @@
 package com.sparta.posting.service;
 
-import com.sparta.posting.dto.DeleteResponseDto;
 import com.sparta.posting.dto.PostingRequestDto;
-import com.sparta.posting.entity.Posting;
-import com.sparta.posting.entity.User;
+import com.sparta.posting.dto.ResponseDto;
+import com.sparta.posting.entity.*;
 import com.sparta.posting.jwt.JwtUtil;
+import com.sparta.posting.repository.CommentRepository;
 import com.sparta.posting.repository.PostingRepository;
 import com.sparta.posting.repository.UserRepository;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,10 +21,11 @@ import java.util.List;
 public class PostingService {
     private final PostingRepository postingRepository;   //@RequiredArgsConstructor 때문에 초기화 하지 않고도 사용가능
     private final UserRepository userRepository;
+    private final CommentRepository commentRepository;
     private final JwtUtil jwtUtil;
 
     @Transactional             //컨트롤러와 결합해주는 역할을 한다.
-    public Posting createPosting(PostingRequestDto postingRequestDto, HttpServletRequest request) {
+    public Post createPosting(PostingRequestDto postingRequestDto, HttpServletRequest request) throws ResponseDto {
         String token = jwtUtil.resolveToken(request);
         Claims claims = null;
 
@@ -31,32 +33,39 @@ public class PostingService {
             if (jwtUtil.validateToken(token)) {
                 claims = jwtUtil.getUserInformToken(token);
             } else {
-                throw new IllegalArgumentException("Token Error");
+                throw new ResponseDto("토큰이 유효하지 않습니다", HttpStatus.UNAUTHORIZED.value());
             }
         }
         User user = userRepository.findByUsername(claims.getSubject()).orElseThrow(
-                () -> new IllegalArgumentException("사용자가 존재하지 않습니다.")
+                () -> new ResponseDto("회원을 찾을 수 없습니다.", HttpStatus.UNAUTHORIZED.value())
         );
-        Posting posting = new Posting(postingRequestDto,user);
-        postingRepository.save(posting);
-        return posting;
+        Post post = new Post(postingRequestDto,user);
+        postingRepository.save(post);
+        return post;
     }
 
     @Transactional(readOnly = true)      //읽기전용으로 하면 약간의 성능적인 이점을 얻을 수 있다.
-    public List<Posting> getPostings() {return postingRepository.findAllByOrderByCreatedAtDesc();}
+    public List<Post> getPostings() {
+        List<Post> posts = postingRepository.findAllByOrderByCreatedAtDesc();
+        for (Post post : posts) {
+            post.comments = commentRepository.findAllByPostIdOrderByCreatedAtDesc(post.getId());
+        }
+        return posts;
+    }
 
     @Transactional(readOnly = true)
-    public Posting getPostingById(Long id) {
-        Posting posting = postingRepository.findById(id).orElseThrow(
-                () -> new IllegalArgumentException("게시글이 존재하지 않습니다.")
+    public Post getPostingById(Long id) throws ResponseDto {
+        Post post = postingRepository.findById(id).orElseThrow(
+                () -> new ResponseDto("게시물이 존재하지 않습니다.", HttpStatus.UNAUTHORIZED.value())
         );
-        return posting;
+        post.comments = commentRepository.findAllByPostIdOrderByCreatedAtDesc(post.getId());
+        return post;
     }
 
     @Transactional
-    public Posting update(Long id, PostingRequestDto postingRequestDto, HttpServletRequest request) {
-        Posting posting = postingRepository.findById(id).orElseThrow(
-                () -> new NullPointerException("게시글이 존재하지 않습니다.")
+    public Post update(Long id, PostingRequestDto postingRequestDto, HttpServletRequest request) throws ResponseDto {
+        Post post = postingRepository.findById(id).orElseThrow(
+                () -> new ResponseDto("게시물이 존재하지 않습니다.", HttpStatus.UNAUTHORIZED.value())
         );
         String token = jwtUtil.resolveToken(request);
         Claims claims = null;
@@ -65,26 +74,29 @@ public class PostingService {
             if (jwtUtil.validateToken(token)) {
                 claims = jwtUtil.getUserInformToken(token);
             } else {
-                throw new IllegalArgumentException("Token Error");
+                throw new ResponseDto("토큰이 유효하지 않습니다", HttpStatus.UNAUTHORIZED.value());
             }
         }
         User user = userRepository.findByUsername(claims.getSubject()).orElseThrow(
-                () -> new IllegalArgumentException("사용자가 존재하지 않습니다.")
+                () -> new ResponseDto("회원을 찾을 수 없습니다.", HttpStatus.UNAUTHORIZED.value())
         );
-
-        posting = postingRepository.findByIdAndUserId(id, user.getId()).orElseThrow(
-                () -> new NullPointerException("해당 게시글은 수정할수 없습니다.")
+        if(user.getRole() == UserRoleEnum.ADMIN) {
+            post.update(postingRequestDto);
+            return post;
+        }
+        post = postingRepository.findByIdAndUserId(id, user.getId()).orElseThrow(
+                () -> new ResponseDto("작성자만 수정할 수 있습니다.",HttpStatus.UNAUTHORIZED.value())
         );
-        posting.update(postingRequestDto);
-        return posting;
+        post.update(postingRequestDto);
+        return post;
     }
 
     @Transactional
-    public DeleteResponseDto deletePosting(Long id, HttpServletRequest request) {
-        Posting posting = postingRepository.findById(id).orElseThrow(
-                () -> new NullPointerException("게시글이 존재하지 않습니다.")
+    public ResponseDto deletePosting(Long id, HttpServletRequest request) throws ResponseDto {
+        Post post = postingRepository.findById(id).orElseThrow(
+                () -> new ResponseDto("게시물이 존재하지 않습니다.", HttpStatus.UNAUTHORIZED.value())
         );
-
+        ResponseDto response = new ResponseDto("게시물삭제가 완료되었습니다.",HttpStatus.UNAUTHORIZED.value());
         String token = jwtUtil.resolveToken(request);
         Claims claims = null;
 
@@ -92,17 +104,20 @@ public class PostingService {
             if (jwtUtil.validateToken(token)) {
                 claims = jwtUtil.getUserInformToken(token);
             } else {
-                throw new IllegalArgumentException("Token Error");
+                throw new ResponseDto("토큰이 유효하지 않습니다", HttpStatus.UNAUTHORIZED.value());
             }
         }
         User user = userRepository.findByUsername(claims.getSubject()).orElseThrow(
-                () -> new IllegalArgumentException("사용자가 존재하지 않습니다.")
+                () -> new ResponseDto("회원을 찾을 수 없습니다.", HttpStatus.UNAUTHORIZED.value())
         );
-        posting = postingRepository.findByIdAndUserId(id, user.getId()).orElseThrow(
-                () -> new NullPointerException("해당 게시글은 삭제할수 없습니다.")
+        if(user.getRole() == UserRoleEnum.ADMIN) {
+            postingRepository.delete(post);
+            return response;
+        }
+        post = postingRepository.findByIdAndUserId(id, user.getId()).orElseThrow(
+                () -> new ResponseDto("작성자만 삭제할 수 있습니다.",HttpStatus.UNAUTHORIZED.value())
         );
         postingRepository.deleteById(id);
-        DeleteResponseDto deleteResponseDto = new DeleteResponseDto();
-        return deleteResponseDto;
+        return response;
     }
 }
